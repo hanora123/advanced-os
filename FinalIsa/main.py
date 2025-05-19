@@ -221,7 +221,7 @@ class OSAlgorithmsApp:
         page_faults = 0
         frames_state = []  # To store the state of frames after each reference
         
-        for i, page in enumerate(reference_string):
+        for i,page in enumerate(reference_string):
             # Check if page is already in a frame
             if page in frames:
                 # Page hit, just record current state
@@ -231,8 +231,9 @@ class OSAlgorithmsApp:
             # Page fault
             page_faults += 1
             
-            # Find the oldest page (FIFO)
-            frames[page_faults % num_frames] = page
+            # Place the page in the correct frame for FIFO
+            # (page_faults - 1) ensures 0-indexed access for the frames array
+            frames[(page_faults - 1) % num_frames] = page
             frames_state.append(frames.copy())
         
         return page_faults, frames_state
@@ -518,9 +519,14 @@ class OSAlgorithmsApp:
             if not is_second_chance:
                 frame_state = frames_state[i]
                 for j, frame in enumerate(frame_state):
+                    
                     if frame != -1:
                         # Check if this is a page fault
-                        is_fault = i > 0 and frame not in frames_state[i-1]
+                        if i==0:
+                            is_fault = True
+                        else:
+                            is_fault = i > 0 and frame not in frames_state[i-1]
+
                         color = 'lightcoral' if is_fault else 'lightblue'
                         ax.add_patch(plt.Rectangle((i-0.4, j-0.4), 0.8, 0.8, fill=True, color=color))
                         ax.text(i, j, str(frame), ha='center', va='center', fontsize=10)

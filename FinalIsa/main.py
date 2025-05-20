@@ -35,7 +35,8 @@ class OSAlgorithmsApp:
         ttk.Radiobutton(algo_frame, text="LRU", variable=self.vm_algo, value="LRU").grid(row=0, column=1, padx=5, pady=5)
         ttk.Radiobutton(algo_frame, text="Optimal", variable=self.vm_algo, value="Optimal").grid(row=0, column=2, padx=5, pady=5)
         ttk.Radiobutton(algo_frame, text="Second Chance", variable=self.vm_algo, value="Second Chance").grid(row=0, column=3, padx=5, pady=5)
-        
+        ttk.Radiobutton(algo_frame, text="Additional Reference Bit", variable=self.vm_algo, value="ARB").grid(row=0, column=4, padx=5, pady=5)
+
         # Input frame
         input_frame = ttk.LabelFrame(self.vm_frame, text="Input Parameters")
         input_frame.pack(fill="x", padx=10, pady=10)
@@ -154,6 +155,9 @@ class OSAlgorithmsApp:
             page_faults, frames_state = self.optimal(ref_result, frames_result)
         elif algorithm == "Second Chance":
             page_faults, frames_state = self.second_chance(ref_result, frames_result)
+        elif algorithm == "ARB":
+            page_faults, frames_state = self.additional_reference_bit(ref_result, frames_result)
+        
         
         # Display results
         self.display_vm_results(ref_result, frames_state, page_faults)
@@ -351,6 +355,56 @@ class OSAlgorithmsApp:
         
         return page_faults, frames_state
     
+    def additional_reference_bit(self, reference_string, num_frames):
+        frames = [-1] * num_frames  # Initialize frames with -1 (empty)
+        aging_bits = {}  # Dictionary to store 8-bit aging counters for each page
+        page_faults = 0
+        frames_state = []  # To store frames and aging bits after each reference
+        
+        print("Additional Reference Bit Simulation Start")
+        for i, page in enumerate(reference_string):
+            print(f"Step {i+1}: Processing page {page}")
+            # Shift all aging bits right by 1
+            for p in aging_bits:
+                old_bits = aging_bits[p]
+                aging_bits[p] >>= 1
+                print(f"  Shifting bits for page {p}: {old_bits:08b} -> {aging_bits[p]:08b}")
+            
+            # Check if page is already in a frame
+            if page in frames:
+                # Page hit, set MSB to 1
+                aging_bits[page] |= (1 << 7)
+                print(f"  Hit: Page {page} in frames {frames}, setting MSB to 1")
+                print(f"  Updated aging bits for page {page}: {aging_bits[page]:08b}")
+                frames_state.append((frames.copy(), aging_bits.copy()))
+                continue
+            
+            # Page fault
+            page_faults += 1
+            print(f"  Fault: Page {page} not in frames {frames}")
+            # If there's an empty frame
+            if -1 in frames:
+                idx = frames.index(-1)
+                frames[idx] = page
+                aging_bits[page] = (1 << 7)  # Initialize with MSB set
+                print(f"  Added page {page} to empty frame {idx}, aging bits: {aging_bits[page]:08b}")
+            else:
+                # Find page with smallest aging bits
+                victim = min(aging_bits.items(), key=lambda x: x[1] if x[0] in frames else float('inf'))[0]
+                idx = frames.index(victim)
+                print(f"  Removing page {victim} with aging bits {aging_bits[victim]:08b}")
+                del aging_bits[victim]
+                frames[idx] = page
+                aging_bits[page] = (1 << 7)  # Initialize with MSB set
+                print(f"  Added page {page} to frame {idx}, aging bits: {aging_bits[page]:08b}")
+            
+            print(f"  Updated frames: {frames}")
+            print(f"  Current aging bits: { {p: f'{b:08b}' for p, b in aging_bits.items()} }")
+            frames_state.append((frames.copy(), aging_bits.copy()))
+        
+        print(f"Additional Reference Bit Simulation End: Faults={page_faults}, Hits={len(reference_string) - page_faults}")
+        return page_faults, frames_state
+        
     # Disk Scheduling Algorithms
     def sstf(self, head, requests):
         current = head
@@ -502,21 +556,26 @@ class OSAlgorithmsApp:
     
     def display_vm_results(self, reference_string, frames_state, page_faults):
         # Create figure for visualization
-        fig, ax = plt.figure(figsize=(10, 6)), plt.subplot(111)
+        if self.vm_algo.get() == "ARB":
+                    fig, (ax, ax_text) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [3, 1]})
+        else:
+                    fig, ax = plt.figure(figsize=(10, 6)), plt.subplot(111)
+
         
         # Check if we're using Second Chance algorithm
-        is_second_chance = isinstance(frames_state[0], tuple)
+        is_special_algo = isinstance(frames_state[0], tuple)
         
         # Number of frames
-        num_frames = len(frames_state[0]) if not is_second_chance else len(frames_state[0][0])
+        num_frames = len(frames_state[0]) if not is_special_algo else len(frames_state[0][0])
         
+                
         # Create a grid for visualization
         for i, ref in enumerate(reference_string):
             # Draw reference value
             ax.text(i, -1, str(ref), ha='center', va='center', fontsize=10)
             
             # Draw frame states
-            if not is_second_chance:
+            if not is_special_algo:
                 frame_state = frames_state[i]
                 for j, frame in enumerate(frame_state):
                     
@@ -531,14 +590,19 @@ class OSAlgorithmsApp:
                         ax.add_patch(plt.Rectangle((i-0.4, j-0.4), 0.8, 0.8, fill=True, color=color))
                         ax.text(i, j, str(frame), ha='center', va='center', fontsize=10)
             else:
-                frame_state, ref_bits = frames_state[i]
-                for j, (frame, ref_bit) in enumerate(zip(frame_state, ref_bits)):
+                frame_state, extra_info = frames_state[i]
+                for j, frame in enumerate(frame_state):
                     if frame != -1:
                         # Check if this is a page fault
                         is_fault = i > 0 and frame not in frames_state[i-1][0]
                         color = 'lightcoral' if is_fault else 'lightblue'
                         ax.add_patch(plt.Rectangle((i-0.4, j-0.4), 0.8, 0.8, fill=True, color=color))
-                        ax.text(i, j, f"{frame} ({ref_bit})", ha='center', va='center', fontsize=8)
+                        if self.vm_algo.get() == "Second Chance":
+                            ref_bit = extra_info[j]
+                            ax.text(i, j, f"{frame} ({ref_bit})", ha='center', va='center', fontsize=8)
+                        elif self.vm_algo.get() == "ARB":
+                            aging_bits = extra_info.get(frame, 0)
+                            ax.text(i, j, str(frame), ha='center', va='center', fontsize=8)
         
         # Set axis limits and labels
         ax.set_xlim(-1, len(reference_string))
@@ -550,7 +614,15 @@ class OSAlgorithmsApp:
         
         # Set title
         ax.set_title(f"Page Replacement Visualization - Page Faults: {page_faults}")
-        
+
+
+        if self.vm_algo.get() == "ARB":
+            # Display aging bits in the second subplot
+            ax_text.axis('off')
+            last_state, last_aging_bits = frames_state[-1]
+            text = "Final Aging Bits:\n" + "\n".join(f"Page {page}: {bits:08b}" for page, bits in last_aging_bits.items() if page in last_state)
+            ax_text.text(0.1, 0.9, text, va='top', fontsize=8, transform=ax_text.transAxes)
+       
         # Create canvas
         canvas = FigureCanvasTkAgg(fig, master=self.vm_canvas_frame)
         canvas.draw()

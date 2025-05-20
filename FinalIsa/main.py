@@ -364,48 +364,37 @@ class OSAlgorithmsApp:
         page_faults = 0
         frames_state = []  # To store frames and aging bits after each reference
         
-        print("Additional Reference Bit Simulation Start")
         for i, page in enumerate(reference_string):
-            print(f"Step {i+1}: Processing page {page}")
             # Shift all aging bits right by 1
             for p in aging_bits:
                 old_bits = aging_bits[p]
                 aging_bits[p] >>= 1
-                print(f"  Shifting bits for page {p}: {old_bits:08b} -> {aging_bits[p]:08b}")
             
             # Check if page is already in a frame
             if page in frames:
                 # Page hit, set MSB to 1
                 aging_bits[page] |= (1 << 7)
-                print(f"  Hit: Page {page} in frames {frames}, setting MSB to 1")
-                print(f"  Updated aging bits for page {page}: {aging_bits[page]:08b}")
                 frames_state.append((frames.copy(), aging_bits.copy()))
                 continue
             
             # Page fault
             page_faults += 1
-            print(f"  Fault: Page {page} not in frames {frames}")
             # If there's an empty frame
             if -1 in frames:
                 idx = frames.index(-1)
                 frames[idx] = page
                 aging_bits[page] = (1 << 7)  # Initialize with MSB set
-                print(f"  Added page {page} to empty frame {idx}, aging bits: {aging_bits[page]:08b}")
             else:
                 # Find page with smallest aging bits
                 victim = min(aging_bits.items(), key=lambda x: x[1] if x[0] in frames else float('inf'))[0]
                 idx = frames.index(victim)
-                print(f"  Removing page {victim} with aging bits {aging_bits[victim]:08b}")
                 del aging_bits[victim]
                 frames[idx] = page
                 aging_bits[page] = (1 << 7)  # Initialize with MSB set
-                print(f"  Added page {page} to frame {idx}, aging bits: {aging_bits[page]:08b}")
             
-            print(f"  Updated frames: {frames}")
-            print(f"  Current aging bits: { {p: f'{b:08b}' for p, b in aging_bits.items()} }")
+           
             frames_state.append((frames.copy(), aging_bits.copy()))
         
-        print(f"Additional Reference Bit Simulation End: Faults={page_faults}, Hits={len(reference_string) - page_faults}")
         return page_faults, frames_state
         
     # Disk Scheduling Algorithms
@@ -441,6 +430,7 @@ class OSAlgorithmsApp:
         
         return order, total_distance
     
+
     def scan(self, head, requests, max_cylinder):
         # Sort requests
         requests = sorted(requests)
@@ -559,7 +549,7 @@ class OSAlgorithmsApp:
                 order.append(r)
         
         # Jump to the smallest request
-        # Note: The jump distance is not counted in C-LOOK
+        
         if lesser:
             order.append(lesser[0])
             total_distance += abs(lesser[0] - order[-2])

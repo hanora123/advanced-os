@@ -69,12 +69,13 @@ class OSAlgorithmsApp:
         algo_frame = ttk.LabelFrame(self.disk_frame, text="Algorithm Selection")
         algo_frame.pack(fill="x", padx=10, pady=10)
         
-        self.disk_algo = tk.StringVar(value="SSTF")
-        ttk.Radiobutton(algo_frame, text="SSTF", variable=self.disk_algo, value="SSTF").grid(row=0, column=0, padx=5, pady=5)
-        ttk.Radiobutton(algo_frame, text="SCAN", variable=self.disk_algo, value="SCAN").grid(row=0, column=1, padx=5, pady=5)
-        ttk.Radiobutton(algo_frame, text="C-SCAN", variable=self.disk_algo, value="C-SCAN").grid(row=0, column=2, padx=5, pady=5)
-        ttk.Radiobutton(algo_frame, text="LOOK", variable=self.disk_algo, value="LOOK").grid(row=0, column=3, padx=5, pady=5)
-        ttk.Radiobutton(algo_frame, text="C-LOOK", variable=self.disk_algo, value="C-LOOK").grid(row=0, column=4, padx=5, pady=5)
+        self.disk_algo = tk.StringVar(value="FCFS")
+        ttk.Radiobutton(algo_frame, text="FCFS", variable=self.disk_algo, value="FCFS").grid(row=0, column=0, padx=5, pady=5)
+        ttk.Radiobutton(algo_frame, text="SSTF", variable=self.disk_algo, value="SSTF").grid(row=0, column=1, padx=5, pady=5)
+        ttk.Radiobutton(algo_frame, text="SCAN", variable=self.disk_algo, value="SCAN").grid(row=0, column=2, padx=5, pady=5)
+        ttk.Radiobutton(algo_frame, text="C-SCAN", variable=self.disk_algo, value="C-SCAN").grid(row=0, column=3, padx=5, pady=5)
+        ttk.Radiobutton(algo_frame, text="LOOK", variable=self.disk_algo, value="LOOK").grid(row=0, column=4, padx=5, pady=5)
+        ttk.Radiobutton(algo_frame, text="C-LOOK", variable=self.disk_algo, value="C-LOOK").grid(row=0, column=5, padx=5, pady=5)
         
         # Input frame
         input_frame = ttk.LabelFrame(self.disk_frame, text="Input Parameters")
@@ -192,7 +193,9 @@ class OSAlgorithmsApp:
         algorithm = self.disk_algo.get()
         
         # Run the selected algorithm
-        if algorithm == "SSTF":
+        if algorithm == "FCFS":
+            order, total_distance = self.fcfs(head_result, queue_result)
+        elif algorithm == "SSTF":
             order, total_distance = self.sstf(head_result, queue_result)
         elif algorithm == "SCAN":
             order, total_distance = self.scan(head_result, queue_result, max_result)
@@ -406,6 +409,21 @@ class OSAlgorithmsApp:
         return page_faults, frames_state
         
     # Disk Scheduling Algorithms
+    def fcfs(self, head, requests):
+        """First-Come, First-Served disk scheduling algorithm"""
+        current = head
+        order = [current]
+        total_distance = 0
+        
+        # Process requests in the exact order they appear
+        for r in requests:
+            distance = abs(r - current)
+            total_distance += distance
+            current = r
+            order.append(current)
+        
+        return order, total_distance
+
     def sstf(self, head, requests):
         current = head
         remaining = requests.copy()
@@ -656,14 +674,18 @@ class OSAlgorithmsApp:
         canvas.get_tk_widget().pack(fill="both", expand=True)
         
         # Display text results
-        result_text = tk.Text(self.disk_canvas_frame, height=5)
+        result_text = ttk.Text(self.disk_canvas_frame, height=5)
         result_text.pack(fill="x", padx=5, pady=5)
         result_text.insert(tk.END, f"Initial Head Position: {head}\n")
         result_text.insert(tk.END, f"Seek Sequence: {' -> '.join(map(str, order))}\n")
         result_text.insert(tk.END, f"Total Seek Distance: {total_distance}")
         result_text.config(state="disabled")
 
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = OSAlgorithmsApp(root)
     root.mainloop()
+
+    
